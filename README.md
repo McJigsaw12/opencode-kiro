@@ -11,6 +11,12 @@ de estado o con un atajo.
 
 > Proyecto no oficial. No está afiliado a Kiro ni a OpenCode.
 
+![OpenCode integrado en la barra lateral derecha de Kiro](docs/screenshot.png)
+
+*OpenCode ocupa la barra lateral derecha de Kiro. El chat de Kiro sigue disponible
+en esa misma barra y se alterna con el botón de la barra de estado o con
+`Ctrl+Alt+Shift+O`.*
+
 ## Características
 
 - **Barra lateral derecha**: la UI de OpenCode ocupa la barra secundaria. La barra
@@ -279,6 +285,7 @@ gh release create v0.2.1 \
 extension.js              Lógica de la extensión (servicio, pairing, webview)
 package.json              Manifest de la extensión
 media/activity.svg        Icono de la barra lateral
+docs/screenshot.png       Captura de la integración en Kiro
 scripts/package.py        Empaquetador VSIX sin dependencias
 scripts/verify.sh         Diagnóstico del servicio y pairing
 install.sh                Empaqueta e instala el VSIX
