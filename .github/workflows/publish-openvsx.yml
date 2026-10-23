@@ -1,0 +1,65 @@
+name: Publish Open VSX
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag o rama a publicar (por ejemplo v0.2.2)"
+        required: true
+        default: "v0.2.2"
+      create_namespace:
+        description: "Crear el namespace del publisher si no existe"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build VSIX
+        run: |
+          set -euo pipefail
+          VERSION=$(python3 -c "import json;print(json.load(open('package.json'))['version'])")
+          if [[ "${{ inputs.ref }}" == v* ]]; then
+            TAG="${{ inputs.ref }}"
+            TAG="${TAG#v}"
+            if [ "$VERSION" != "$TAG" ]; then
+              echo "El ref v$TAG no coincide con package.json ($VERSION)" >&2
+              exit 1
+            fi
+          fi
+          python3 scripts/package.py
+          ls -l *.vsix
+
+      - name: Publish to Open VSX
+        env:
+          OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPEN_VSX_TOKEN:-}" ]; then
+            echo "Falta el secret OPEN_VSX_TOKEN en el repo." >&2
+            exit 1
+          fi
+          PUBLISHER=$(python3 -c "import json;print(json.load(open('package.json'))['publisher'])")
+          if [ "${{ inputs.create_namespace }}" = "true" ]; then
+            npx --yes ovsx create-namespace "$PUBLISHER" --pat "$OPEN_VSX_TOKEN" || true
+          fi
+          npx --yes ovsx publish fghernandez.opencode-kiro-*.vsix --pat "$OPEN_VSX_TOKEN"

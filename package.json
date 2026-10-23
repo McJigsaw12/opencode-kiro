@@ -2,10 +2,15 @@
   "name": "opencode-kiro",
   "displayName": "OpenCode for Kiro",
   "description": "Integra la UI web de OpenCode en Kiro: barra lateral, pestaña del editor, workspace automático, contexto de archivo/selección y arranque del servicio.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "fghernandez",
   "author": "McJigsaw12",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1f1f1f",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/McJigsaw12/opencode-kiro.git"
@@ -24,6 +29,8 @@
     "opencode",
     "ai",
     "assistant",
+    "chat",
+    "sidebar",
     "kiro"
   ],
   "main": "./extension.js",

@@ -263,8 +263,8 @@ Para publicar una nueva versión:
 2. Haz commit y push a `main`.
 3. Crea y sube un tag:
    ```sh
-   git tag v0.2.1
-   git push origin v0.2.1
+   git tag v0.2.2
+   git push origin v0.2.2
    ```
 4. El workflow `.github/workflows/release.yml` construye el VSIX y crea la
    release con dos assets: el archivo versionado y `opencode-kiro.vsix` (nombre
@@ -273,11 +273,33 @@ Para publicar una nueva versión:
 También puedes crear la release manualmente:
 
 ```sh
-gh release create v0.2.1 \
-  fghernandez.opencode-kiro-0.2.1.vsix \
-  --title "OpenCode for Kiro 0.2.1" \
+gh release create v0.2.2 \
+  fghernandez.opencode-kiro-0.2.2.vsix \
+  --title "OpenCode for Kiro 0.2.2" \
   --generate-notes
 ```
+
+### Publicar en Open VSX
+
+Kiro usa **Open VSX** como registro de extensiones. Para que aparezca en la vista
+de Extensiones de Kiro (y se pueda instalar por nombre):
+
+1. Crea una cuenta en https://open-vsx.org con GitHub.
+2. Crea el namespace `fghernandez` (debe coincidir con `publisher` en
+   `package.json`).
+3. Genera un token en https://open-vsx.org/user-settings/tokens.
+4. Guarda el token como secret del repo:
+   ```sh
+   gh secret set OPEN_VSX_TOKEN --repo McJigsaw12/opencode-kiro
+   ```
+5. Ejecuta el workflow con el tag que quieras publicar:
+   ```sh
+   gh workflow run publish-openvsx.yml -f ref=v0.2.2
+   ```
+
+El workflow construye el VSIX y lo publica con `ovsx`. Comprueba que el tag
+coincida con la versión de `package.json` y puede crear el namespace si no
+existe.
 
 ## Estructura
 
@@ -285,11 +307,12 @@ gh release create v0.2.1 \
 extension.js              Lógica de la extensión (servicio, pairing, webview)
 package.json              Manifest de la extensión
 media/activity.svg        Icono de la barra lateral
+media/icon.png            Icono de la extensión (128x128)
 docs/screenshot.png       Captura de la integración en Kiro
 scripts/package.py        Empaquetador VSIX sin dependencias
 scripts/verify.sh         Diagnóstico del servicio y pairing
 install.sh                Empaqueta e instala el VSIX
-.github/workflows/       CI de releases
+.github/workflows/        CI, releases y publicación en Open VSX
 ```
 
 ## Licencia

@@ -8,7 +8,14 @@ import zipfile
 from xml.sax.saxutils import escape
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FILES = ["package.json", "extension.js", "README.md", "media/activity.svg", "docs/screenshot.png"]
+FILES = [
+    "package.json",
+    "extension.js",
+    "README.md",
+    "media/activity.svg",
+    "media/icon.png",
+    "docs/screenshot.png",
+]
 
 CONTENT_TYPES = """<?xml version="1.0" encoding="utf-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
