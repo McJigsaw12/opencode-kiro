@@ -1,6 +1,7 @@
 # OpenCode for Kiro
 
 [![Release](https://img.shields.io/github/v/release/McJigsaw12/opencode-kiro?display_name=tag&sort=semver)](https://github.com/McJigsaw12/opencode-kiro/releases/latest)
+[![CI](https://github.com/McJigsaw12/opencode-kiro/actions/workflows/ci.yml/badge.svg)](https://github.com/McJigsaw12/opencode-kiro/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Integra la interfaz web de **OpenCode** dentro de **Kiro**, sin abrir una terminal
