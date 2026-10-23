@@ -15,7 +15,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 usage() {
-  sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 case "${1:-}" in
@@ -26,11 +26,12 @@ case "${1:-}" in
 esac
 
 VSIX="${1:-}"
+TMP_DIR=""
 TMP_DOWNLOAD=""
 TMP_EXTRACT=""
 
 cleanup() {
-  [ -n "$TMP_DOWNLOAD" ] && rm -f "$TMP_DOWNLOAD"
+  [ -n "$TMP_DIR" ] && rm -rf "$TMP_DIR"
   [ -n "$TMP_EXTRACT" ] && rm -rf "$TMP_EXTRACT"
 }
 trap cleanup EXIT
@@ -49,7 +50,8 @@ elif [[ "$VSIX" == http://* || "$VSIX" == https://* ]]; then
     echo "❌ Falta curl para descargar el VSIX." >&2
     exit 1
   fi
-  TMP_DOWNLOAD=$(mktemp -t opencode-kiro-XXXXXX.vsix)
+  TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/opencode-kiro-XXXXXX")
+  TMP_DOWNLOAD="$TMP_DIR/opencode-kiro.vsix"
   echo "==> Descargando $VSIX"
   curl -fL "$VSIX" -o "$TMP_DOWNLOAD"
   VSIX="$TMP_DOWNLOAD"
@@ -90,16 +92,19 @@ if [ -z "${KIRO_BIN:-}" ] || [ -z "${KIRO_CLI:-}" ]; then
   done
 fi
 
-kiro_cli() {
-  local limit="${KIRO_TIMEOUT:-120}"
-  local runner=()
+run_with_timeout() {
   if command -v timeout >/dev/null 2>&1; then
-    runner=(timeout "$limit")
+    timeout "${KIRO_TIMEOUT:-120}" "$@"
+  else
+    "$@"
   fi
+}
+
+kiro_cli() {
   if [ -n "${KIRO_CLI:-}" ] && [ -n "${KIRO_BIN:-}" ] && [ -f "$KIRO_CLI" ] && [ -x "$KIRO_BIN" ]; then
-    "${runner[@]}" env ELECTRON_RUN_AS_NODE=1 "$KIRO_BIN" "$KIRO_CLI" "$@"
+    run_with_timeout env ELECTRON_RUN_AS_NODE=1 "$KIRO_BIN" "$KIRO_CLI" "$@"
   elif command -v kiro >/dev/null 2>&1; then
-    "${runner[@]}" kiro "$@"
+    run_with_timeout kiro "$@"
   else
     return 127
   fi
@@ -114,9 +119,13 @@ fi
 if [ "$installed" -eq 0 ]; then
   echo "==> No se encontró el CLI de Kiro; se intentará la instalación manual."
   if command -v python3 >/dev/null 2>&1; then
-    PUBLISHER=$(python3 -c "import json;print(json.load(open('package.json'))['publisher'])")
-    NAME=$(python3 -c "import json;print(json.load(open('package.json'))['name'])")
-    VERSION=$(python3 -c "import json;print(json.load(open('package.json'))['version'])")
+    read -r PUBLISHER NAME VERSION < <(python3 - "$VSIX" <<'PY'
+import json, sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    pkg = json.loads(archive.read("extension/package.json"))
+print(pkg["publisher"], pkg["name"], pkg["version"])
+PY
+)
     target="$HOME/.kiro/extensions/${PUBLISHER}.${NAME}-${VERSION}"
     echo "==> Copiando a $target"
     rm -rf "$target"
