@@ -44,6 +44,8 @@ en esa misma barra y se alterna con el botón de la barra de estado o con
   error claro en vez de fallar con un mensaje genérico.
 - **Diagnóstico**: `OpenCode: Comprobar requisitos` revisa sistema, servicio,
   versión, pairing y sesión del workspace.
+- **Windows**: detecta `opencode.exe` y `opencode.cmd` (npm, Scoop, Chocolatey o
+  binario oficial) y ejecuta los shims `.cmd` a través de `cmd.exe`.
 
 ## Requisitos
 
@@ -52,7 +54,7 @@ en esa misma barra y se alterna con el botón de la barra de estado o con
 | **Kiro** | Una versión actualizada (API de VS Code 1.94+) | Abre Kiro y comprueba que puedes instalar un VSIX. |
 | **OpenCode** | **v2** instalado en la misma máquina | `opencode --version` debe empezar por `2.` |
 | **Servicio** | El servicio local de OpenCode funcionando | `opencode service status` |
-| **Sistema** | Linux (probado) o macOS; Windows aún no | Linux/macOS con rutas Unix. |
+| **Sistema** | Linux (probado), macOS y Windows | Linux/macOS con rutas Unix; Windows con OpenCode nativo. |
 
 > La extensión comprueba la versión al conectar. Si detecta OpenCode v1, muestra
 > un error claro en vez de fallar de forma confusa.
@@ -63,7 +65,8 @@ en esa misma barra y se alterna con el botón de la barra de estado o con
 - **OpenCode v2** instalado y funcionando:
   - Instálalo desde su documentación oficial: https://opencode.ai
   - El ejecutable debe estar en el `PATH` como `opencode`, o en
-    `~/.opencode/bin/opencode`. También puedes indicar otra ruta con el ajuste
+    `~/.opencode/bin/opencode`. En Windows puede ser `opencode.exe` o
+    `opencode.cmd`. También puedes indicar otra ruta con el ajuste
     `opencode.path`.
   - Comprueba la versión y arranca el servicio:
     ```sh
@@ -72,10 +75,14 @@ en esa misma barra y se alterna con el botón de la barra de estado o con
     opencode service status
     ```
   - La extensión lee el servicio de
-    `${XDG_STATE_HOME:-$HOME/.local/state}/opencode/service.json`.
-- **Sistemas**: Linux es el entorno probado. macOS debería funcionar si OpenCode
-  usa la misma ruta de estado; instala el VSIX desde la UI de Kiro. Windows aún
-  no está soportado (la extensión y los scripts asumen rutas Unix).
+    `${XDG_STATE_HOME:-$HOME/.local/state}/opencode/service.json`. En Windows,
+    `$HOME` es `%USERPROFILE%`.
+- **Sistemas**: Linux es el entorno probado. macOS y Windows usan la misma ruta
+  de estado de OpenCode. En Windows, instala desde Open VSX o el VSIX;
+  `install.sh` es solo para Linux/macOS. Si OpenCode se instaló con npm, Scoop o
+  Chocolatey, la extensión detecta `opencode.exe`/`opencode.cmd` en el `PATH` y
+  en las rutas habituales. Si no lo encuentra, configura `opencode.path` con la
+  ruta absoluta.
 
 No necesitas Node, npm ni Bun para instalar el VSIX. Tampoco hace falta una
 cuenta de GitHub para descargar la release.
@@ -104,7 +111,19 @@ Página de la extensión:
 **https://open-vsx.org/extension/fghernandez/opencode-kiro**
 
 > Si la búsqueda aún no la muestra, el índice de Open VSX puede tardar unos
-> minutos. La instalación por ID y el VSIX de GitHub funcionan igualmente.
+> minutos. La instalación por ID y el VSIX de GitHub funcionan igualmente. Open
+> VSX también puede tardar en indexar una versión nueva; si necesitas la última,
+> usa el VSIX de GitHub Releases.
+
+### Windows
+
+La extensión funciona con **OpenCode v2 nativo** en Windows. Instala desde Open
+VSX o con el VSIX; `install.sh` es un script de Linux/macOS y no hace falta en
+Windows.
+
+> Si OpenCode está dentro de WSL, su `service.json` vive en el sistema de
+> archivos de WSL y la extensión no lo encontrará. Instala OpenCode v2 nativo
+> para Windows.
 
 ## Instalación manual desde GitHub Releases
 
@@ -154,6 +173,7 @@ cd opencode-kiro
 
 El script empaqueta el VSIX con Python y lo instala con el CLI de Kiro. Si no
 encuentra el CLI, muestra cómo instalarlo manualmente desde la UI de Kiro.
+`install.sh` es para Linux/macOS; en Windows usa Open VSX o el VSIX.
 
 También puedes empaquetar sin instalar:
 
@@ -259,11 +279,16 @@ Kiro (webview) ──iframe──▶ http://127.0.0.1:<puerto>/server/<clave>/se
   errores.
 - **`opencode` no encontrado**: instala OpenCode v2 o configura `opencode.path`
   con la ruta absoluta del ejecutable.
+- **Windows no encuentra `opencode`**: comprueba en PowerShell que
+  `opencode --version` funciona. Si el comando existe pero la extensión no lo
+  detecta, configura `opencode.path` con la ruta a `opencode.exe` o
+  `opencode.cmd`. La extensión necesita OpenCode nativo en Windows, no el de
+  WSL.
 - **“OpenCode X no es compatible”**: tienes OpenCode v1. Actualiza a v2 y
   comprueba con `opencode --version`.
 - **El servicio no arranca**: ejecuta `opencode service start` en una terminal y
-  comprueba `opencode service status`. En Linux/macOS el archivo de estado debe
-  estar en `~/.local/state/opencode/service.json`.
+  comprueba `opencode service status`. En Linux, macOS y Windows el archivo de
+  estado debe estar en `~/.local/state/opencode/service.json`.
 - **No aparece el botón OpenCode**: recarga Kiro después de instalar el VSIX.
 - **No aparece en Open VSX o la búsqueda no la encuentra**: el índice puede tardar
   unos minutos. Instala por ID con
@@ -284,14 +309,21 @@ El proyecto no tiene dependencias de npm. Para generar el VSIX:
 python3 scripts/package.py
 ```
 
+Las pruebas de plataforma y ejecución se ejecutan con Node:
+
+```sh
+node --check extension.js
+node scripts/test.js
+```
+
 Para publicar una nueva versión:
 
 1. Actualiza `version` en `package.json` y los textos de versión si hace falta.
 2. Haz commit y push a `main`.
 3. Crea y sube un tag:
    ```sh
-   git tag v0.2.2
-   git push origin v0.2.2
+   git tag v0.2.3
+   git push origin v0.2.3
    ```
 4. El workflow `.github/workflows/release.yml` construye el VSIX y crea la
    release con dos assets: el archivo versionado y `opencode-kiro.vsix` (nombre
@@ -300,9 +332,9 @@ Para publicar una nueva versión:
 También puedes crear la release manualmente:
 
 ```sh
-gh release create v0.2.2 \
-  fghernandez.opencode-kiro-0.2.2.vsix \
-  --title "OpenCode for Kiro 0.2.2" \
+gh release create v0.2.3 \
+  fghernandez.opencode-kiro-0.2.3.vsix \
+  --title "OpenCode for Kiro 0.2.3" \
   --generate-notes
 ```
 
@@ -321,7 +353,7 @@ de Extensiones de Kiro (y se pueda instalar por nombre):
    ```
 5. Ejecuta el workflow con el tag que quieras publicar:
    ```sh
-   gh workflow run publish-openvsx.yml -f ref=v0.2.2
+   gh workflow run publish-openvsx.yml -f ref=v0.2.3
    ```
 
 El workflow construye el VSIX y lo publica con `ovsx`. Comprueba que el tag
@@ -342,6 +374,7 @@ media/activity.svg        Icono de la barra lateral
 media/icon.png            Icono de la extensión (128x128)
 docs/screenshot.png       Captura de la integración en Kiro
 scripts/package.py        Empaquetador VSIX sin dependencias
+scripts/test.js           Pruebas de detección de ejecutable y spawn
 scripts/verify.sh         Diagnóstico del servicio y pairing
 install.sh                Empaqueta e instala el VSIX
 .github/workflows/        CI, releases y publicación en Open VSX

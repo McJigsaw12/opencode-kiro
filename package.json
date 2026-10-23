@@ -2,7 +2,7 @@
   "name": "opencode-kiro",
   "displayName": "OpenCode for Kiro",
   "description": "Integra la UI web de OpenCode en Kiro: barra lateral, pestaña del editor, workspace automático, contexto de archivo/selección y arranque del servicio.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "fghernandez",
   "author": "McJigsaw12",
   "license": "MIT",
@@ -186,7 +186,7 @@
         "opencode.path": {
           "type": "string",
           "default": "opencode",
-          "description": "Ruta al ejecutable de OpenCode. Si se deja como `opencode`, se busca en el PATH y en ~/.opencode/bin."
+          "description": "Ruta al ejecutable de OpenCode. Si se deja como `opencode`, se busca en el PATH y en ~/.opencode/bin. En Windows puede ser opencode.exe o opencode.cmd."
         },
         "opencode.autoStart": {
           "type": "boolean",

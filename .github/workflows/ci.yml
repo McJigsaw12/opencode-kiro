@@ -18,9 +18,16 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Validate manifest
         run: |
           python3 -c "import json;json.load(open('package.json'))"
+          node --check extension.js
+          node scripts/test.js
 
       - name: Build VSIX
         run: python3 scripts/package.py

@@ -3,6 +3,7 @@
 const vscode = require("vscode")
 const { spawn } = require("node:child_process")
 const crypto = require("node:crypto")
+const fsSync = require("node:fs")
 const fs = require("node:fs/promises")
 const os = require("node:os")
 const path = require("node:path")
@@ -72,25 +73,101 @@ function assertCompatible(body) {
   }
 }
 
+function isWindows(platform = process.platform) {
+  return platform === "win32"
+}
+
+function resolveExecutable(command, platform = process.platform) {
+  if (!isWindows(platform) || !command) return command
+  const extensions = (process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD")
+    .split(";")
+    .map((extension) => extension.trim())
+    .filter(Boolean)
+  const hasExtension = Boolean(path.extname(command))
+  const hasSeparator = command.includes("/") || command.includes("\\")
+
+  if (hasExtension) return command
+  if (hasSeparator) {
+    for (const extension of extensions) {
+      const candidate = `${command}${extension}`
+      if (fsSync.existsSync(candidate)) return candidate
+    }
+    return command
+  }
+
+  const directories = (process.env.PATH || "")
+    .split(path.delimiter)
+    .map((directory) => directory.trim().replace(/^"(.*)"$/, "$1"))
+    .filter(Boolean)
+  for (const directory of directories) {
+    for (const extension of extensions) {
+      const candidate = path.join(directory, `${command}${extension}`)
+      if (fsSync.existsSync(candidate)) return candidate
+    }
+  }
+  return command
+}
+
 function executableCandidates() {
   const configured = vscode.workspace.getConfiguration("opencode").get("path", "opencode")
   const home = os.homedir()
-  const names = process.platform === "win32" ? ["opencode.exe", "opencode.cmd"] : ["opencode"]
   const candidates = [configured]
-  for (const name of names) {
-    candidates.push(path.join(home, ".opencode", "bin", name))
-    candidates.push(path.join("/usr/local/bin", name))
-    candidates.push(path.join("/usr/bin", name))
+
+  if (isWindows()) {
+    const names = ["opencode.exe", "opencode.cmd", "opencode.bat"]
+    const directories = [
+      path.join(home, ".opencode", "bin"),
+      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "opencode"),
+      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "opencode"),
+      process.env.APPDATA && path.join(process.env.APPDATA, "npm"),
+      process.env.ProgramFiles && path.join(process.env.ProgramFiles, "opencode"),
+      process.env.ProgramData && path.join(process.env.ProgramData, "chocolatey", "bin"),
+      path.join(home, "scoop", "shims"),
+      path.join(home, ".bun", "bin"),
+    ].filter(Boolean)
+    for (const directory of directories) {
+      for (const name of names) candidates.push(path.join(directory, name))
+    }
+  } else {
+    for (const name of ["opencode"]) {
+      candidates.push(path.join(home, ".opencode", "bin", name))
+      candidates.push(path.join(home, ".bun", "bin", name))
+      candidates.push(path.join("/usr/local/bin", name))
+      candidates.push(path.join("/usr/bin", name))
+    }
   }
   return [...new Set(candidates.filter(Boolean))]
 }
 
+function quoteCmd(value) {
+  return `"${String(value).replaceAll('"', '""')}"`
+}
+
+function commandFor(command, args, platform = process.platform) {
+  const executable = resolveExecutable(command, platform)
+  const useCmd = isWindows(platform) && /\.(cmd|bat)$/i.test(executable)
+  if (!useCmd) {
+    return { executable, file: executable, args, windowsVerbatimArguments: false }
+  }
+  return {
+    executable,
+    file: process.env.ComSpec || "cmd.exe",
+    args: ["/d", "/s", "/c", `"${[executable, ...args].map(quoteCmd).join(" ")}"`],
+    windowsVerbatimArguments: true,
+  }
+}
+
 function run(command, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: "ignore" })
+    const invocation = commandFor(command, args)
+    const child = spawn(invocation.file, invocation.args, {
+      stdio: "ignore",
+      windowsHide: true,
+      windowsVerbatimArguments: invocation.windowsVerbatimArguments,
+    })
     const timer = setTimeout(() => {
       child.kill()
-      reject(new Error(`${command} ${args.join(" ")} tardó demasiado`))
+      reject(new Error(`${invocation.executable} ${args.join(" ")} tardó demasiado`))
     }, 25_000)
     child.once("error", (error) => {
       clearTimeout(timer)
@@ -99,7 +176,7 @@ function run(command, args) {
     child.once("exit", (code) => {
       clearTimeout(timer)
       if (code === 0) resolve()
-      else reject(new Error(`${command} ${args.join(" ")} terminó con código ${code}`))
+      else reject(new Error(`${invocation.executable} ${args.join(" ")} terminó con código ${code}`))
     })
   })
 }
@@ -464,8 +541,8 @@ async function diagnose() {
     log(`${ok ? "✅" : "❌"} ${label}${detail ? `: ${detail}` : ""}`)
   }
 
-  const platformOk = process.platform === "linux" || process.platform === "darwin"
-  check(platformOk, "Sistema", `${process.platform} ${os.release()}${platformOk ? "" : " (Windows aún no soportado)"}`)
+  const platformOk = process.platform === "linux" || process.platform === "darwin" || isWindows()
+  check(platformOk, "Sistema", `${process.platform} ${os.release()}${platformOk ? "" : " (plataforma no soportada)"}`)
 
   const directory = workspaceDirectory()
   check(Boolean(directory), "Workspace de Kiro", directory ?? "abre una carpeta en Kiro")
@@ -620,4 +697,8 @@ function activate(context) {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate }
+module.exports = {
+  activate,
+  deactivate,
+  __test: { commandFor, executableCandidates, quoteCmd, resolveExecutable, run },
+}
