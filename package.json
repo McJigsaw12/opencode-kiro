@@ -2,7 +2,7 @@
   "name": "opencode-kiro",
   "displayName": "OpenCode for Kiro",
   "description": "Integra la UI web de OpenCode en Kiro: barra lateral, pestaña del editor, workspace automático, contexto de archivo/selección y arranque del servicio.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "fghernandez",
   "author": "McJigsaw12",
   "license": "MIT",
@@ -91,10 +91,21 @@
         "command": "opencode.sendSelection",
         "title": "OpenCode: Enviar archivo/selección como contexto",
         "category": "OpenCode"
+      },
+      {
+        "command": "opencode.diagnose",
+        "title": "OpenCode: Comprobar requisitos",
+        "category": "OpenCode",
+        "icon": "$(checklist)"
       }
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "opencode.diagnose",
+          "when": "view == opencode.view",
+          "group": "navigation@0"
+        },
         {
           "command": "opencode.refresh",
           "when": "view == opencode.view",
@@ -142,6 +153,9 @@
         {
           "command": "opencode.sendSelection",
           "when": "editorTextFocus"
+        },
+        {
+          "command": "opencode.diagnose"
         }
       ]
     },

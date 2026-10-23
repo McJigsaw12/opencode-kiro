@@ -41,18 +41,34 @@ function authorization(password) {
   return "Basic " + Buffer.from(`opencode:${password}`).toString("base64")
 }
 
-async function healthy(info) {
+async function fetchServiceInfo(info) {
   try {
     const response = await fetch(new URL("/api/info", info.url), {
       headers: { authorization: authorization(info.password) },
       signal: AbortSignal.timeout(2500),
     })
-    if (!response.ok) return false
-    const body = await response.json()
-    if (typeof body?.pid === "number" && typeof info.pid === "number" && body.pid !== info.pid) return false
-    return true
+    if (!response.ok) return undefined
+    return await response.json()
   } catch {
-    return false
+    return undefined
+  }
+}
+
+async function healthy(info) {
+  const body = await fetchServiceInfo(info)
+  if (!body) return false
+  if (typeof body?.pid === "number" && typeof info.pid === "number" && body.pid !== info.pid) return false
+  return body
+}
+
+function assertCompatible(body) {
+  const version = body?.version
+  if (typeof version !== "string" || !version) {
+    log("[service] /api/info no reporta versión; se asume OpenCode v2")
+    return
+  }
+  if (!/^2(\.|$)/.test(version)) {
+    throw new Error(`OpenCode ${version} no es compatible: esta extensión requiere OpenCode v2.`)
   }
 }
 
@@ -118,9 +134,13 @@ async function waitForService(timeoutMs) {
 
 async function ensureService() {
   const existing = await readService()
-  if (existing && (await healthy(existing))) {
-    log(`[service] reutilizando ${existing.url}`)
-    return existing
+  if (existing) {
+    const body = await healthy(existing)
+    if (body) {
+      assertCompatible(body)
+      log(`[service] reutilizando ${existing.url}`)
+      return existing
+    }
   }
 
   if (!vscode.workspace.getConfiguration("opencode").get("autoStart", true)) {
@@ -137,6 +157,9 @@ async function ensureService() {
     info = await waitForService(20_000)
   }
   if (!info) throw new Error("El servicio de OpenCode no respondió después de arrancarlo.")
+  const body = await healthy(info)
+  if (!body) throw new Error("El servicio de OpenCode no respondió después de arrancarlo.")
+  assertCompatible(body)
   return info
 }
 
@@ -189,7 +212,7 @@ function workspaceDirectory(document) {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 }
 
-async function ensureWorkspaceSession(info, directory) {
+async function ensureWorkspaceSession(info, directory, options = {}) {
   const query = `directory=${encodeURIComponent(directory)}&limit=100&order=desc`
   const list = await apiRequest(info, `/api/session?${query}`)
   const roots = (list?.data ?? []).filter((session) => !session.parentID)
@@ -201,6 +224,7 @@ async function ensureWorkspaceSession(info, directory) {
     .sort((a, b) => (b.time.viewed ?? 0) - (a.time.viewed ?? 0))
   const existing = viewed[0] ?? roots[0]
   if (existing?.id) return existing.id
+  if (options.create === false) return undefined
 
   const created = await apiRequest(info, "/api/session", {
     method: "POST",
@@ -430,6 +454,70 @@ function selectionPrompt(editor) {
   }
 }
 
+async function diagnose() {
+  output.show(true)
+  log("")
+  log("=== Diagnóstico de OpenCode for Kiro ===")
+  const results = []
+  const check = (ok, label, detail = "") => {
+    results.push({ ok, label })
+    log(`${ok ? "✅" : "❌"} ${label}${detail ? `: ${detail}` : ""}`)
+  }
+
+  const platformOk = process.platform === "linux" || process.platform === "darwin"
+  check(platformOk, "Sistema", `${process.platform} ${os.release()}${platformOk ? "" : " (Windows aún no soportado)"}`)
+
+  const directory = workspaceDirectory()
+  check(Boolean(directory), "Workspace de Kiro", directory ?? "abre una carpeta en Kiro")
+
+  let info
+  try {
+    info = await readService()
+  } catch {
+    info = undefined
+  }
+  check(
+    Boolean(info),
+    "service.json",
+    info ? serviceFile() : `no existe ${serviceFile()}. Ejecuta: opencode service start`,
+  )
+
+  let body
+  if (info) {
+    body = await fetchServiceInfo(info)
+    check(Boolean(body), "Servicio", body ? info.url : `no responde en ${info.url}. Ejecuta: opencode service restart`)
+    if (body) {
+      const version = body.version
+      check(typeof version === "string" && /^2(\.|$)/.test(version), "OpenCode v2", version ?? "sin versión")
+    }
+  }
+
+  if (info && body) {
+    try {
+      const token = await issueToken(info)
+      check(true, "Pairing", `token de ${token.length} caracteres`)
+    } catch (error) {
+      check(false, "Pairing", error.message)
+    }
+  }
+
+  if (info && body && directory) {
+    try {
+      const sessionID = await ensureWorkspaceSession(info, directory, { create: false })
+      check(true, "Sesión del workspace", sessionID ?? "no hay sesiones todavía; se creará al abrir OpenCode")
+    } catch (error) {
+      check(false, "Sesión del workspace", error.message)
+    }
+  }
+
+  const failed = results.filter((result) => !result.ok)
+  if (failed.length === 0) {
+    vscode.window.showInformationMessage("OpenCode: requisitos correctos. Revisa Output → OpenCode para el detalle.")
+  } else {
+    vscode.window.showWarningMessage(`OpenCode: ${failed.length} comprobación(es) con problemas. Revisa Output → OpenCode.`)
+  }
+}
+
 function activate(context) {
   output = vscode.window.createOutputChannel(OUTPUT_NAME)
   context.subscriptions.push(output)
@@ -481,6 +569,7 @@ function activate(context) {
         vscode.window.showErrorMessage(`OpenCode: ${error.message}`)
       }
     }),
+    vscode.commands.registerCommand("opencode.diagnose", diagnose),
     vscode.commands.registerCommand("opencode.copyReference", async () => {
       const editor = vscode.window.activeTextEditor
       if (!editor) {
