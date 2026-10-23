@@ -1,0 +1,193 @@
+{
+  "name": "opencode-kiro",
+  "displayName": "OpenCode for Kiro",
+  "description": "Integra la UI web de OpenCode en Kiro: barra lateral, pestaña del editor, workspace automático, contexto de archivo/selección y arranque del servicio.",
+  "version": "0.2.0",
+  "publisher": "fghernandez",
+  "author": "McJigsaw12",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/McJigsaw12/opencode-kiro.git"
+  },
+  "homepage": "https://github.com/McJigsaw12/opencode-kiro#readme",
+  "bugs": {
+    "url": "https://github.com/McJigsaw12/opencode-kiro/issues"
+  },
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "opencode",
+    "ai",
+    "assistant",
+    "kiro"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "opencode",
+          "title": "OpenCode",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "opencode": [
+        {
+          "type": "webview",
+          "id": "opencode.view",
+          "name": "OpenCode"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "opencode.focus",
+        "title": "OpenCode: Abrir en la barra derecha",
+        "category": "OpenCode"
+      },
+      {
+        "command": "opencode.openInEditor",
+        "title": "OpenCode: Abrir en pestaña del editor",
+        "category": "OpenCode",
+        "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "opencode.toggle",
+        "title": "OpenCode: Alternar OpenCode / chat de Kiro",
+        "category": "OpenCode"
+      },
+      {
+        "command": "opencode.showKiroChat",
+        "title": "OpenCode: Mostrar chat de Kiro",
+        "category": "OpenCode"
+      },
+      {
+        "command": "opencode.refresh",
+        "title": "OpenCode: Recargar",
+        "category": "OpenCode",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "opencode.restartService",
+        "title": "OpenCode: Reiniciar servicio",
+        "category": "OpenCode"
+      },
+      {
+        "command": "opencode.copyReference",
+        "title": "OpenCode: Copiar referencia del archivo/selección",
+        "category": "OpenCode"
+      },
+      {
+        "command": "opencode.sendSelection",
+        "title": "OpenCode: Enviar archivo/selección como contexto",
+        "category": "OpenCode"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "opencode.refresh",
+          "when": "view == opencode.view",
+          "group": "navigation@1"
+        },
+        {
+          "command": "opencode.openInEditor",
+          "when": "view == opencode.view",
+          "group": "navigation@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "opencode.sendSelection",
+          "group": "z_commands@1"
+        },
+        {
+          "command": "opencode.copyReference",
+          "group": "z_commands@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "opencode.focus"
+        },
+        {
+          "command": "opencode.openInEditor"
+        },
+        {
+          "command": "opencode.toggle"
+        },
+        {
+          "command": "opencode.showKiroChat"
+        },
+        {
+          "command": "opencode.refresh"
+        },
+        {
+          "command": "opencode.restartService"
+        },
+        {
+          "command": "opencode.copyReference",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "opencode.sendSelection",
+          "when": "editorTextFocus"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "opencode.focus",
+        "key": "ctrl+alt+shift+o",
+        "mac": "cmd+alt+shift+o",
+        "when": "focusedView != 'opencode.view'"
+      },
+      {
+        "command": "opencode.showKiroChat",
+        "key": "ctrl+alt+shift+o",
+        "mac": "cmd+alt+shift+o",
+        "when": "focusedView == 'opencode.view'"
+      }
+    ],
+    "configuration": {
+      "title": "OpenCode",
+      "properties": {
+        "opencode.path": {
+          "type": "string",
+          "default": "opencode",
+          "description": "Ruta al ejecutable de OpenCode. Si se deja como `opencode`, se busca en el PATH y en ~/.opencode/bin."
+        },
+        "opencode.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Arrancar el servicio de OpenCode (`opencode service start`) si no está en marcha al abrir el panel."
+        },
+        "opencode.openInEditorColumn": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right",
+            "active"
+          ],
+          "enumDescriptions": [
+            "Abrir en el grupo de editores más a la izquierda.",
+            "Abrir en un grupo nuevo a la derecha del grupo activo.",
+            "Abrir en el grupo de editores activo."
+          ],
+          "default": "left",
+          "description": "Dónde abrir la pestaña del editor con la UI de OpenCode."
+        }
+      }
+    }
+  }
+}

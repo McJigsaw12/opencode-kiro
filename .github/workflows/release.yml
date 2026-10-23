@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Build VSIX
+        run: |
+          set -euo pipefail
+          VERSION=$(python3 -c "import json;print(json.load(open('package.json'))['version'])")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "El tag v$TAG no coincide con package.json ($VERSION)" >&2
+            exit 1
+          fi
+          python3 scripts/package.py
+          cp "fghernandez.opencode-kiro-${VERSION}.vsix" opencode-kiro.vsix
+          ls -l *.vsix
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            fghernandez.opencode-kiro-*.vsix
+            opencode-kiro.vsix
+          generate_release_notes: true
