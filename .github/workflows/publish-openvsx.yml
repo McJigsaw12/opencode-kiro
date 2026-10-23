@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Tag o rama a publicar (por ejemplo v0.2.3)"
+        description: "Tag o rama a publicar (por ejemplo v0.2.4)"
         required: true
-        default: "v0.2.3"
+        default: "v0.2.4"
       create_namespace:
         description: "Crear el namespace del publisher si no existe"
         type: boolean

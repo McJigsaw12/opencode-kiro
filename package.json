@@ -2,7 +2,7 @@
   "name": "opencode-kiro",
   "displayName": "OpenCode for Kiro",
   "description": "Integra la UI web de OpenCode en Kiro: barra lateral, pestaña del editor, workspace automático, contexto de archivo/selección y arranque del servicio.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "fghernandez",
   "author": "McJigsaw12",
   "license": "MIT",
@@ -100,6 +100,11 @@
         "category": "OpenCode"
       },
       {
+        "command": "opencode.sendSelectionAsk",
+        "title": "OpenCode: Enviar archivo/selección a una conversación…",
+        "category": "OpenCode"
+      },
+      {
         "command": "opencode.diagnose",
         "title": "OpenCode: Comprobar requisitos",
         "category": "OpenCode",
@@ -132,6 +137,10 @@
         {
           "command": "opencode.copyReference",
           "group": "z_commands@2"
+        },
+        {
+          "command": "opencode.sendSelectionAsk",
+          "group": "z_commands@3"
         }
       ],
       "commandPalette": [
@@ -159,6 +168,10 @@
         },
         {
           "command": "opencode.sendSelection",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "opencode.sendSelectionAsk",
           "when": "editorTextFocus"
         },
         {
@@ -207,6 +220,19 @@
           ],
           "default": "left",
           "description": "Dónde abrir la pestaña del editor con la UI de OpenCode."
+        },
+        "opencode.contextTarget": {
+          "type": "string",
+          "enum": [
+            "active",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "Enviar al chat abierto en OpenCode. Si no se puede determinar, usa el último chat visto.",
+            "Preguntar qué conversación debe recibir el contexto cuando haya varias."
+          ],
+          "default": "active",
+          "description": "Cómo elegir el chat que recibe el archivo o la selección desde Kiro."
         }
       }
     }

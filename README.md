@@ -1,51 +1,12 @@
 # OpenCode for Kiro
 
-[![Release](https://img.shields.io/github/v/release/McJigsaw12/opencode-kiro?display_name=tag&sort=semver)](https://github.com/McJigsaw12/opencode-kiro/releases/latest)
-[![Open VSX](https://img.shields.io/open-vsx/v/fghernandez/opencode-kiro?label=Open%20VSX)](https://open-vsx.org/extension/fghernandez/opencode-kiro)
-[![CI](https://github.com/McJigsaw12/opencode-kiro/actions/workflows/ci.yml/badge.svg)](https://github.com/McJigsaw12/opencode-kiro/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
 Integra la interfaz web de **OpenCode** dentro de **Kiro**, sin abrir una terminal
 ni salir del editor. La UI vive en la barra lateral derecha y comparte ese espacio
-con el chat de Kiro, así que puedes alternar entre ambos con el botón de la barra
-de estado o con un atajo.
+con el chat de Kiro.
 
 > Proyecto no oficial. No está afiliado a Kiro ni a OpenCode.
 
 ![OpenCode integrado en la barra lateral derecha de Kiro](docs/screenshot.png)
-
-*OpenCode ocupa la barra lateral derecha de Kiro. El chat de Kiro sigue disponible
-en esa misma barra y se alterna con el botón de la barra de estado o con
-`Ctrl+Alt+Shift+O`.*
-
-## Características
-
-- **Barra lateral derecha**: la UI de OpenCode ocupa la barra secundaria. La barra
-  izquierda (Explorer) no se mueve.
-- **Alternancia con el chat de Kiro**: el botón `OpenCode` de la barra de estado
-  muestra OpenCode si está oculto, y devuelve la barra al chat de Kiro si OpenCode
-  está visible. También funciona con `Ctrl+Alt+Shift+O`
-  (`Cmd+Alt+Shift+O` en macOS).
-- **Pestaña del editor**: comando `OpenCode: Abrir en pestaña del editor`, por
-  defecto en el grupo de editores de la izquierda.
-- **Servicio automático**: si el servicio local de OpenCode no está en marcha, la
-  extensión ejecuta `opencode service start` (y `restart` si hace falta).
-- **Pairing automático**: crea un token efímero con `POST /api/pair` y lo canjea
-  con `GET /auth/connect/<code>`. No guarda cookies ni pide contraseña.
-- **Workspace automático**: al abrir la UI se enlaza al último chat visto del
-  directorio abierto en Kiro (o crea una sesión si no hay ninguna), en vez de
-  quedarse en el directorio por defecto del servicio.
-- **Contexto desde Kiro**: `OpenCode: Enviar archivo/selección como contexto`
-  adjunta el archivo activo y el fragmento seleccionado al chat que tengas abierto
-  en OpenCode, y lo enfoca. Si la sesión está ocupada, el mensaje queda en cola.
-- **Referencias**: `OpenCode: Copiar referencia del archivo/selección` copia
-  `@ruta/archivo:N-M` al portapapeles para pegarlo en el chat.
-- **Comprobación de versión**: si OpenCode no es v2, la extensión muestra un
-  error claro en vez de fallar con un mensaje genérico.
-- **Diagnóstico**: `OpenCode: Comprobar requisitos` revisa sistema, servicio,
-  versión, pairing y sesión del workspace.
-- **Windows**: detecta `opencode.exe` y `opencode.cmd` (npm, Scoop, Chocolatey o
-  binario oficial) y ejecuta los shims `.cmd` a través de `cmd.exe`.
 
 ## Requisitos
 
@@ -54,48 +15,29 @@ en esa misma barra y se alterna con el botón de la barra de estado o con
 | **Kiro** | Una versión actualizada (API de VS Code 1.94+) | Abre Kiro y comprueba que puedes instalar un VSIX. |
 | **OpenCode** | **v2** instalado en la misma máquina | `opencode --version` debe empezar por `2.` |
 | **Servicio** | El servicio local de OpenCode funcionando | `opencode service status` |
-| **Sistema** | Linux (probado), macOS y Windows | Linux/macOS con rutas Unix; Windows con OpenCode nativo. |
+| **Sistema** | Linux, macOS o Windows | En Windows, OpenCode nativo (no WSL). |
 
-> La extensión comprueba la versión al conectar. Si detecta OpenCode v1, muestra
-> un error claro en vez de fallar de forma confusa.
+- Instala OpenCode desde su documentación oficial: https://opencode.ai.
+- El ejecutable debe estar en el `PATH` como `opencode` o en
+  `~/.opencode/bin/opencode`. En Windows puede ser `opencode.exe` o
+  `opencode.cmd`. Si está en otra ruta, configura `opencode.path`.
+- Abre una carpeta en Kiro antes de usar la extensión.
+- No necesitas Node, npm ni Bun para instalar el VSIX.
 
-### Para instalar el VSIX
+Para arrancar el servicio:
 
-- **Kiro** actualizado. La extensión usa la API de VS Code 1.94 o superior.
-- **OpenCode v2** instalado y funcionando:
-  - Instálalo desde su documentación oficial: https://opencode.ai
-  - El ejecutable debe estar en el `PATH` como `opencode`, o en
-    `~/.opencode/bin/opencode`. En Windows puede ser `opencode.exe` o
-    `opencode.cmd`. También puedes indicar otra ruta con el ajuste
-    `opencode.path`.
-  - Comprueba la versión y arranca el servicio:
-    ```sh
-    opencode --version    # debe empezar por 2.
-    opencode service start
-    opencode service status
-    ```
-  - La extensión lee el servicio de
-    `${XDG_STATE_HOME:-$HOME/.local/state}/opencode/service.json`. En Windows,
-    `$HOME` es `%USERPROFILE%`.
-- **Sistemas**: Linux es el entorno probado. macOS y Windows usan la misma ruta
-  de estado de OpenCode. En Windows, instala desde Open VSX o el VSIX;
-  `install.sh` es solo para Linux/macOS. Si OpenCode se instaló con npm, Scoop o
-  Chocolatey, la extensión detecta `opencode.exe`/`opencode.cmd` en el `PATH` y
-  en las rutas habituales. Si no lo encuentra, configura `opencode.path` con la
-  ruta absoluta.
+```sh
+opencode service start
+opencode service status
+```
 
-No necesitas Node, npm ni Bun para instalar el VSIX. Tampoco hace falta una
-cuenta de GitHub para descargar la release.
+La extensión lee el estado de
+`${XDG_STATE_HOME:-$HOME/.local/state}/opencode/service.json`. En Windows,
+`$HOME` es `%USERPROFILE%`.
 
-### Para compilar desde el código fuente
+## Instalación
 
-- Python 3.8 o superior (solo para empaquetar el VSIX).
-- `git` y `bash`.
-
-## Instalación desde Open VSX
-
-Kiro usa **Open VSX** como registro de extensiones, así que puedes instalarla sin
-descargar archivos:
+### Desde Open VSX (recomendado)
 
 1. Abre la vista **Extensiones** en Kiro.
 2. Busca **OpenCode for Kiro** o el ID `fghernandez.opencode-kiro`.
@@ -111,274 +53,98 @@ Página de la extensión:
 **https://open-vsx.org/extension/fghernandez/opencode-kiro**
 
 > Si la búsqueda aún no la muestra, el índice de Open VSX puede tardar unos
-> minutos u horas. La instalación por ID y el VSIX de GitHub funcionan igualmente. Open
-> VSX también puede tardar en indexar una versión nueva; si necesitas la última,
-> usa el VSIX de GitHub Releases.
+> minutos u horas. La instalación por ID y el VSIX de GitHub funcionan igualmente.
 
-### Windows
+### Desde un VSIX
 
-La extensión funciona con **OpenCode v2 nativo** en Windows. Instala desde Open
-VSX o con el VSIX; `install.sh` es un script de Linux/macOS y no hace falta en
-Windows.
-
-> Si OpenCode está dentro de WSL, su `service.json` vive en el sistema de
-> archivos de WSL y la extensión no lo encontrará. Instala OpenCode v2 nativo
-> para Windows.
-
-## Instalación manual desde GitHub Releases
-
-Si prefieres un VSIX o Kiro no puede acceder a Open VSX:
-
-### Antes de empezar
-
-- [ ] Kiro instalado y actualizado.
-- [ ] OpenCode **v2** instalado: `opencode --version` debe mostrar `2.x`.
-- [ ] Servicio funcionando: `opencode service start`.
-- [ ] Una carpeta abierta en Kiro.
-
-Si algo falla después de instalar, ejecuta **OpenCode: Comprobar requisitos**
-desde la paleta de comandos. Te dirá exactamente qué falta.
-
-### Pasos
-
-1. Abre la última release:
+1. Descarga `opencode-kiro.vsix` desde la última release:
    **https://github.com/McJigsaw12/opencode-kiro/releases/latest**
-2. Descarga `opencode-kiro.vsix`.
-3. En Kiro, abre la vista **Extensiones**, pulsa el menú `...` y elige
-   **Install from VSIX...**. Selecciona el archivo descargado.
-4. Recarga Kiro: `Ctrl+Shift+P` → **Developer: Reload Window**.
-5. Abre OpenCode con el botón de la barra de estado o con `Ctrl+Alt+Shift+O`.
-6. Si es la primera vez, ejecuta **OpenCode: Comprobar requisitos** y revisa
-   **Ver → Resultados → OpenCode**.
+2. En Kiro, abre **Extensiones**, pulsa el menú `...` y elige
+   **Install from VSIX...**.
+3. Selecciona el archivo y recarga Kiro
+   (`Ctrl+Shift+P` → **Developer: Reload Window**).
 
-También puedes instalar por CLI si el comando `kiro` está disponible:
+También puedes instalarlo por CLI:
 
 ```sh
 kiro --install-extension opencode-kiro.vsix
 ```
 
-El enlace directo al VSIX de la última release es:
+## Cómo hacerla funcionar
 
-```text
-https://github.com/McJigsaw12/opencode-kiro/releases/latest/download/opencode-kiro.vsix
-```
-
-## Instalación desde el código fuente
-
-```sh
-git clone https://github.com/McJigsaw12/opencode-kiro.git
-cd opencode-kiro
-./install.sh
-```
-
-El script empaqueta el VSIX con Python y lo instala con el CLI de Kiro. Si no
-encuentra el CLI, muestra cómo instalarlo manualmente desde la UI de Kiro.
-`install.sh` es para Linux/macOS; en Windows usa Open VSX o el VSIX.
-
-También puedes empaquetar sin instalar:
-
-```sh
-python3 scripts/package.py
-# genera fghernandez.opencode-kiro-<versión>.vsix
-```
-
-Y instalar el archivo generado:
-
-```sh
-kiro --install-extension fghernandez.opencode-kiro-*.vsix
-```
-
-Si el comando `kiro` no está en el `PATH`, usa **Install from VSIX...** en Kiro o
-indica las rutas del CLI:
-
-```sh
-KIRO_APP="$HOME/.local/share/kiro" \
-KIRO_BIN="$KIRO_APP/kiro" \
-KIRO_CLI="$KIRO_APP/resources/app/out/cli.js" \
-./install.sh
-```
+1. Abre una carpeta en Kiro.
+2. Pulsa el botón **OpenCode** de la barra de estado o usa
+   `Ctrl+Alt+Shift+O` (`Cmd+Alt+Shift+O` en macOS).
+3. La extensión arranca el servicio si no está en marcha, conecta la UI y enlaza
+   el workspace abierto.
+4. Si es la primera vez, ejecuta **OpenCode: Comprobar requisitos** y revisa
+   **Ver → Resultados → OpenCode**.
 
 ## Uso
 
 ### Abrir y alternar
 
-- Pulsa el botón **OpenCode** de la barra de estado.
-- O usa `Ctrl+Alt+Shift+O` (`Cmd+Alt+Shift+O` en macOS).
-- `OpenCode: Alternar OpenCode / chat de Kiro` hace lo mismo desde la paleta.
-- `OpenCode: Abrir en pestaña del editor` abre la UI como editor normal.
+- El botón **OpenCode** de la barra de estado muestra OpenCode si está oculto y
+  devuelve la barra al chat de Kiro si OpenCode está visible.
+- `Ctrl+Alt+Shift+O` (`Cmd+Alt+Shift+O` en macOS) hace lo mismo.
+- **OpenCode: Abrir en pestaña del editor** abre la UI como editor normal.
+- **OpenCode: Alternar OpenCode / chat de Kiro** hace lo mismo desde la paleta.
 
 ### Enviar contexto desde Kiro
 
 1. Abre un archivo y, si quieres, selecciona un fragmento.
-2. Haz clic derecho en el editor y elige
-   **OpenCode: Enviar archivo/selección como contexto**, o búscalo en la paleta
-   de comandos.
-3. La extensión:
-   - busca el chat que tengas abierto en OpenCode (el último chat visto en ese
-     workspace),
-   - adjunta el archivo completo,
-   - añade la referencia `@archivo:línea-inicio-línea-fin` y el texto
-     seleccionado,
-   - abre ese chat en la barra lateral.
+2. Haz clic derecho y elige **OpenCode: Enviar archivo/selección como contexto**.
+3. La extensión adjunta el archivo, añade la referencia
+   `@archivo:línea-inicio-línea-fin` y el texto seleccionado, y abre el chat
+   correspondiente.
 
-El comando envía un mensaje real a la sesión. OpenCode no expone una API para
-solo prellenar el campo de texto; si la sesión está trabajando, el mensaje queda
-en cola.
+El comando envía un mensaje real a la sesión. Si la sesión está trabajando, el
+mensaje queda en cola. Si tienes varias conversaciones, usa **OpenCode: Enviar
+archivo/selección a una conversación…** o pon `opencode.contextTarget` en `ask`.
 
-### Workspace automático
+### Copiar una referencia
 
-Al abrir la UI, la extensión busca el último chat visto del directorio abierto
-en Kiro y lo abre. Si no existe ninguno, crea una sesión. Esto hace que OpenCode
-trabaje sobre el mismo proyecto que Kiro sin tener que seleccionarlo a mano.
+**OpenCode: Copiar referencia del archivo/selección** copia `@ruta/archivo:N-M`
+al portapapeles para pegarlo en el chat.
 
 ## Ajustes
 
 | Ajuste | Por defecto | Descripción |
 | --- | --- | --- |
-| `opencode.path` | `opencode` | Ruta al ejecutable de OpenCode. Si se deja como `opencode`, se busca en el `PATH` y en `~/.opencode/bin`. |
-| `opencode.autoStart` | `true` | Arrancar el servicio (`opencode service start`) si no está en marcha al abrir el panel. |
-| `opencode.openInEditorColumn` | `left` | `left` grupo izquierdo, `right` grupo nuevo a la derecha, `active` grupo activo. |
+| `opencode.path` | `opencode` | Ruta al ejecutable de OpenCode. |
+| `opencode.autoStart` | `true` | Arranca el servicio si no está en marcha al abrir el panel. |
+| `opencode.openInEditorColumn` | `left` | `left`, `right` o `active`. |
+| `opencode.contextTarget` | `active` | `active` usa el chat abierto; `ask` pregunta cuando hay varias conversaciones. |
 
 ## Comandos
 
 | Comando | Descripción |
 | --- | --- |
-| `OpenCode: Abrir en pestaña del editor` | Abre la UI en un editor (según `opencode.openInEditorColumn`). |
 | `OpenCode: Abrir en la barra derecha` | Muestra la UI en la barra lateral secundaria. |
-| `OpenCode: Alternar OpenCode / chat de Kiro` | Si OpenCode está visible, muestra el chat de Kiro; si no, muestra OpenCode. Es lo que hace el botón de la barra de estado. |
+| `OpenCode: Abrir en pestaña del editor` | Abre la UI como editor. |
+| `OpenCode: Alternar OpenCode / chat de Kiro` | Alterna entre OpenCode y el chat de Kiro. |
 | `OpenCode: Mostrar chat de Kiro` | Devuelve la barra derecha al chat de Kiro. |
-| `OpenCode: Recargar` | Regenera el pairing y recarga el webview. |
-| `OpenCode: Reiniciar servicio` | Ejecuta `opencode service restart` y recarga. |
-| `OpenCode: Comprobar requisitos` | Diagnóstico de sistema, servicio, versión v2, pairing y sesión del workspace. |
+| `OpenCode: Recargar` | Regenera la conexión y recarga la UI. |
+| `OpenCode: Reiniciar servicio` | Reinicia el servicio de OpenCode. |
+| `OpenCode: Comprobar requisitos` | Revisa sistema, servicio, versión y conexión. |
 | `OpenCode: Copiar referencia del archivo/selección` | Copia `@archivo:línea`. |
-| `OpenCode: Enviar archivo/selección como contexto` | Adjunta el archivo y la selección al chat abierto y lo enfoca. |
+| `OpenCode: Enviar archivo/selección como contexto` | Adjunta el archivo y la selección al chat abierto. |
+| `OpenCode: Enviar archivo/selección a una conversación…` | Permite elegir el chat de destino. |
 
-## Cómo funciona
+## Si algo falla
 
-```text
-Kiro (webview) ──iframe──▶ http://127.0.0.1:<puerto>/server/<clave>/session/<id>?auth_token=...
-                                   ▲
-                                   │ Basic opencode:<password>
-                              ~/.local/state/opencode/service.json
-```
-
-- El webview solo contiene un `iframe` a pantalla completa. La CSP limita
-  `frame-src` al origen local de OpenCode.
-- El token de la UI se genera en cada carga con el flujo de pairing y caduca con
-  el servidor. No se guarda en disco.
-- `<clave>` es el base64url de la URL del servicio y `<id>` es la sesión del
-  workspace de Kiro.
-- La extensión reutiliza el servicio que ya esté corriendo; si no existe, lo
-  arranca con `opencode service start`.
-- Antes de conectar comprueba que `/api/info` reporte una versión `2.x`.
-
-## Solución de problemas
-
-- **“No se pudo abrir OpenCode”**: revisa **Ver → Resultados → OpenCode**
-  (Output → OpenCode). Ahí aparecen el servicio detectado, el pairing y los
-  errores.
-- **`opencode` no encontrado**: instala OpenCode v2 o configura `opencode.path`
-  con la ruta absoluta del ejecutable.
-- **Windows no encuentra `opencode`**: comprueba en PowerShell que
-  `opencode --version` funciona. Si el comando existe pero la extensión no lo
-  detecta, configura `opencode.path` con la ruta a `opencode.exe` o
-  `opencode.cmd`. La extensión necesita OpenCode nativo en Windows, no el de
-  WSL.
-- **“OpenCode X no es compatible”**: tienes OpenCode v1. Actualiza a v2 y
-  comprueba con `opencode --version`.
-- **El servicio no arranca**: ejecuta `opencode service start` en una terminal y
-  comprueba `opencode service status`. En Linux, macOS y Windows el archivo de
-  estado debe estar en `~/.local/state/opencode/service.json`.
-- **No aparece el botón OpenCode**: recarga Kiro después de instalar el VSIX.
-- **No aparece en Open VSX o la búsqueda no la encuentra**: el índice puede tardar
-  minutos u horas. Instala por ID con
-  `kiro --install-extension fghernandez.opencode-kiro` o usa el VSIX de GitHub.
-- **No sabes qué falta**: ejecuta **OpenCode: Comprobar requisitos** y revisa
-  **Ver → Resultados → OpenCode**.
-- **La UI queda en “Conectando…”**: ejecuta `./scripts/verify.sh` para probar el
-  servicio y el pairing, o usa `opencode api get /api/info`.
-- **El comando de contexto abre otra conversación**: abre el chat que quieras en
-  OpenCode; la extensión usa el último chat visto en el workspace. Si el chat
-  está corriendo, espera a que termine o envíalo después.
-
-## Desarrollo y releases
-
-El proyecto no tiene dependencias de npm. Para generar el VSIX:
-
-```sh
-python3 scripts/package.py
-```
-
-Las pruebas de plataforma y ejecución se ejecutan con Node:
-
-```sh
-node --check extension.js
-node scripts/test.js
-```
-
-Para publicar una nueva versión:
-
-1. Actualiza `version` en `package.json` y los textos de versión si hace falta.
-2. Haz commit y push a `main`.
-3. Crea y sube un tag:
-   ```sh
-   git tag v0.2.3
-   git push origin v0.2.3
-   ```
-4. El workflow `.github/workflows/release.yml` construye el VSIX y crea la
-   release con dos assets: el archivo versionado y `opencode-kiro.vsix` (nombre
-   estable para el enlace `releases/latest/download/opencode-kiro.vsix`).
-
-También puedes crear la release manualmente:
-
-```sh
-gh release create v0.2.3 \
-  fghernandez.opencode-kiro-0.2.3.vsix \
-  --title "OpenCode for Kiro 0.2.3" \
-  --generate-notes
-```
-
-### Publicar en Open VSX
-
-Kiro usa **Open VSX** como registro de extensiones. Para que aparezca en la vista
-de Extensiones de Kiro (y se pueda instalar por nombre):
-
-1. Crea una cuenta en https://open-vsx.org con GitHub.
-2. Crea el namespace `fghernandez` (debe coincidir con `publisher` en
-   `package.json`).
-3. Genera un token en https://open-vsx.org/user-settings/tokens.
-4. Guarda el token como secret del repo:
-   ```sh
-   gh secret set OPEN_VSX_TOKEN --repo McJigsaw12/opencode-kiro
-   ```
-5. Ejecuta el workflow con el tag que quieras publicar:
-   ```sh
-   gh workflow run publish-openvsx.yml -f ref=v0.2.3
-   ```
-
-El workflow construye el VSIX y lo publica con `ovsx`. Comprueba que el tag
-coincida con la versión de `package.json` y puede crear el namespace si no
-existe. La página pública es
-https://open-vsx.org/extension/fghernandez/opencode-kiro.
-
-No compartas el token de Open VSX. Si se filtra, revócalo en
-https://open-vsx.org/user-settings/tokens y actualiza el secret
-`OPEN_VSX_TOKEN`.
-
-## Estructura
-
-```text
-extension.js              Lógica de la extensión (servicio, pairing, webview)
-package.json              Manifest de la extensión
-media/activity.svg        Icono de la barra lateral
-media/icon.png            Icono de la extensión (128x128)
-docs/screenshot.png       Captura de la integración en Kiro
-scripts/package.py        Empaquetador VSIX sin dependencias
-scripts/test.js           Pruebas de detección de ejecutable y spawn
-scripts/verify.sh         Diagnóstico del servicio y pairing
-install.sh                Empaqueta e instala el VSIX
-.github/workflows/        CI, releases y publicación en Open VSX
-```
+- **“No se pudo abrir OpenCode”**: revisa **Ver → Resultados → OpenCode**.
+- **`opencode` no encontrado**: instala OpenCode v2 o configura `opencode.path`.
+- **Windows no encuentra `opencode`**: usa OpenCode nativo y configura
+  `opencode.path` con la ruta a `opencode.exe` o `opencode.cmd`.
+- **“OpenCode X no es compatible”**: actualiza a OpenCode v2.
+- **El servicio no arranca**: ejecuta `opencode service start` y comprueba
+  `opencode service status`.
+- **No aparece el botón OpenCode**: recarga Kiro después de instalar.
+- **La UI queda en “Conectando…”**: ejecuta **OpenCode: Comprobar requisitos**
+  y revisa la salida.
+- **El comando de contexto abre otra conversación**: usa **OpenCode: Enviar
+  archivo/selección a una conversación…** o pon `opencode.contextTarget` en `ask`.
 
 ## Licencia
 

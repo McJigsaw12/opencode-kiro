@@ -2,4 +2,5 @@
 scripts/**
 install.sh
 .gitignore
+DEVELOPMENT.md
 *.vsix

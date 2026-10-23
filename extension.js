@@ -199,6 +199,24 @@ async function runServiceCommand(args) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+function abortableSleep(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve()
+      return
+    }
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer)
+        resolve()
+      },
+      { once: true },
+    )
+  })
+}
+
 async function waitForService(timeoutMs) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -276,6 +294,88 @@ async function apiRequest(info, pathname, options = {}) {
   return response.json()
 }
 
+function isSessionArchived(session) {
+  return Boolean(session?.time?.archived)
+}
+
+function sessionActivity(session) {
+  return session?.time?.viewed ?? session?.time?.updated ?? session?.time?.created ?? 0
+}
+
+function sortSessionsByActivity(sessions) {
+  return [...sessions].sort((a, b) => {
+    const viewed = (b.time?.viewed ?? 0) - (a.time?.viewed ?? 0)
+    if (viewed !== 0) return viewed
+    return (b.time?.updated ?? 0) - (a.time?.updated ?? 0)
+  })
+}
+
+function chooseWorkspaceSession(sessions, preferredSessionID) {
+  const roots = sessions.filter((session) => session?.id && !session.parentID && !isSessionArchived(session))
+  if (roots.length === 0) return undefined
+  if (preferredSessionID) {
+    const preferred = roots.find((session) => session.id === preferredSessionID)
+    if (preferred) return preferred
+  }
+  return sortSessionsByActivity(roots)[0]
+}
+
+function chooseContextTarget(sessions, viewedSessionID, currentSessionID) {
+  const roots = sessions.filter((session) => session?.id && !session.parentID && !isSessionArchived(session))
+  const byID = new Map(roots.map((session) => [session.id, session]))
+  // session.viewed llega desde la UI cuando el usuario abre un chat. Es la
+  // señal más fiable; el chat que renderizó la extensión es el respaldo.
+  if (viewedSessionID && byID.has(viewedSessionID)) return byID.get(viewedSessionID)
+  if (currentSessionID && byID.has(currentSessionID)) return byID.get(currentSessionID)
+  return sortSessionsByActivity(roots)[0]
+}
+
+function formatRelativeTime(timestamp) {
+  if (typeof timestamp !== "number") return "sin registro"
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000))
+  if (seconds < 60) return "ahora"
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `hace ${minutes} min`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `hace ${hours} h`
+  return `hace ${Math.round(hours / 24)} d`
+}
+
+class SseParser {
+  constructor() {
+    this.buffer = ""
+  }
+
+  push(chunk) {
+    this.buffer += chunk
+    this.buffer = this.buffer.replace(/\r\n/g, "\n")
+    const events = []
+    let boundary = this.buffer.indexOf("\n\n")
+    while (boundary >= 0) {
+      const block = this.buffer.slice(0, boundary)
+      this.buffer = this.buffer.slice(boundary + 2)
+      const event = this.parseBlock(block)
+      if (event) events.push(event)
+      boundary = this.buffer.indexOf("\n\n")
+    }
+    return events
+  }
+
+  parseBlock(block) {
+    const data = []
+    for (const line of block.split("\n")) {
+      if (!line.startsWith("data:")) continue
+      data.push(line.slice(5).replace(/^ /, ""))
+    }
+    if (data.length === 0) return undefined
+    try {
+      return JSON.parse(data.join("\n"))
+    } catch {
+      return undefined
+    }
+  }
+}
+
 function workspaceDirectory(document) {
   if (document) {
     const folder = vscode.workspace.getWorkspaceFolder(document.uri)
@@ -289,17 +389,53 @@ function workspaceDirectory(document) {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 }
 
-async function ensureWorkspaceSession(info, directory, options = {}) {
+async function listWorkspaceSessions(info, directory) {
   const query = `directory=${encodeURIComponent(directory)}&limit=100&order=desc`
   const list = await apiRequest(info, `/api/session?${query}`)
-  const roots = (list?.data ?? []).filter((session) => !session.parentID)
-  // El chat abierto en la UI se marca con time.viewed. Es mejor señal que
-  // time.updated, porque otra conversación puede estar corriendo en segundo
-  // plano y actualizarse más tarde sin ser la que el usuario está viendo.
-  const viewed = roots
-    .filter((session) => typeof session.time?.viewed === "number")
-    .sort((a, b) => (b.time.viewed ?? 0) - (a.time.viewed ?? 0))
-  const existing = viewed[0] ?? roots[0]
+  return (list?.data ?? []).filter((session) => session?.id && !isSessionArchived(session))
+}
+
+async function activeSessionIDs(info) {
+  try {
+    const body = await apiRequest(info, "/api/session/active")
+    return new Set(Object.keys(body?.data ?? {}))
+  } catch {
+    return new Set()
+  }
+}
+
+async function pickContextSession(info, sessions, activeSessionID) {
+  const roots = sessions.filter((session) => !session.parentID)
+  if (roots.length <= 1) return roots[0]
+  const running = await activeSessionIDs(info)
+  const ordered = [...roots].sort((a, b) => {
+    if (a.id === activeSessionID) return -1
+    if (b.id === activeSessionID) return 1
+    return sessionActivity(b) - sessionActivity(a)
+  })
+  const items = ordered.map((session) => {
+    const tags = []
+    if (session.id === activeSessionID) tags.push("activo")
+    if (running.has(session.id)) tags.push("trabajando")
+    return {
+      label: `$(comment-discussion) ${session.title || session.id}`,
+      description: tags.join(" · "),
+      detail: `visto ${formatRelativeTime(session.time?.viewed)} · actualizado ${formatRelativeTime(session.time?.updated)}`,
+      session,
+    }
+  })
+  const picked = await vscode.window.showQuickPick(items, {
+    title: "OpenCode: enviar contexto",
+    placeHolder: "Elige la conversación que recibirá el archivo/selección",
+    matchOnDescription: true,
+    matchOnDetail: true,
+  })
+  return picked?.session
+}
+
+async function ensureWorkspaceSession(info, directory, options = {}) {
+  const sessions = options.sessions ?? (await listWorkspaceSessions(info, directory))
+  const existing = chooseWorkspaceSession(sessions, options.preferredSessionID)
   if (existing?.id) return existing.id
   if (options.create === false) return undefined
 
@@ -404,6 +540,18 @@ class OpenCodePanels {
     this.view = undefined
     /** @type {string | undefined} */
     this.pendingSession = undefined
+    /** @type {string | undefined} */
+    this.currentSession = undefined
+    /** @type {string | undefined} */
+    this.viewedSession = undefined
+    /** @type {Set<string>} */
+    this.runningSessions = new Set()
+    /** @type {AbortController | undefined} */
+    this.eventController = undefined
+    /** @type {{ url: string } | undefined} */
+    this.eventInfo = undefined
+    /** @type {Promise<void> | undefined} */
+    this.eventTask = undefined
   }
 
   async attach(webview) {
@@ -418,19 +566,23 @@ class OpenCodePanels {
     webview.html = loadingHtml()
     try {
       const info = await ensureService()
+      this.ensureEventStream(info)
       const token = await issueToken(info)
       let sid = sessionID ?? this.pendingSession
       if (!sid) {
         const directory = workspaceDirectory()
         if (directory) {
           try {
-            sid = await ensureWorkspaceSession(info, directory)
+            sid = await ensureWorkspaceSession(info, directory, {
+              preferredSessionID: this.viewedSession ?? this.currentSession,
+            })
           } catch (error) {
             log(`[session] no se pudo abrir el workspace: ${error.message}`)
           }
         }
       }
       webview.html = appHtml(appUrl(info, token, sid))
+      if (sid) this.currentSession = sid
       log(`[webview] conectado a ${info.url}${sid ? ` (sesión ${sid})` : ""}`)
     } catch (error) {
       const message = error?.message ?? String(error)
@@ -441,8 +593,28 @@ class OpenCodePanels {
 
   async showSession(sessionID) {
     this.pendingSession = sessionID
-    for (const webview of this.webviews) void this.render(webview, sessionID)
+    this.currentSession = sessionID
+    await Promise.allSettled([...this.webviews].map((webview) => this.render(webview, sessionID)))
+    this.pendingSession = undefined
     await vscode.commands.executeCommand(`${VIEW_ID}.focus`)
+  }
+
+  async revealSession(sessionID) {
+    if (this.currentSession === sessionID) {
+      if (this.view?.visible) {
+        await vscode.commands.executeCommand(`${VIEW_ID}.focus`)
+        return
+      }
+      if (this.panel) {
+        this.panel.reveal(undefined, false)
+        return
+      }
+      if (this.view) {
+        await vscode.commands.executeCommand(`${VIEW_ID}.focus`)
+        return
+      }
+    }
+    await this.showSession(sessionID)
   }
 
   refresh() {
@@ -451,6 +623,87 @@ class OpenCodePanels {
       return
     }
     for (const webview of this.webviews) void this.render(webview)
+  }
+
+  ensureEventStream(info) {
+    if (this.eventController && !this.eventController.signal.aborted && this.eventInfo?.url === info.url) return
+    this.stopEventStream()
+    const controller = new AbortController()
+    this.eventController = controller
+    this.eventInfo = info
+    this.eventTask = this.consumeEvents(info, controller.signal).catch((error) => {
+      if (!controller.signal.aborted) log(`[event] ${error.message}`)
+    })
+  }
+
+  stopEventStream() {
+    this.eventController?.abort()
+    this.eventController = undefined
+    this.eventInfo = undefined
+    this.eventTask = undefined
+  }
+
+  dispose() {
+    this.stopEventStream()
+    this.webviews.clear()
+  }
+
+  handleEvent(event) {
+    const type = event?.type
+    const sessionID = event?.data?.sessionID
+    if (typeof sessionID !== "string") return
+
+    if (type === "session.viewed") {
+      this.viewedSession = sessionID
+      log(`[session] vista ${sessionID}`)
+      return
+    }
+    if (type === "session.status") {
+      if (event.data?.status?.type === "busy") this.runningSessions.add(sessionID)
+      else if (event.data?.status?.type === "idle") this.runningSessions.delete(sessionID)
+      return
+    }
+    if (type === "session.idle") {
+      this.runningSessions.delete(sessionID)
+      return
+    }
+    if (type === "session.deleted" || type === "session.archived") {
+      this.runningSessions.delete(sessionID)
+      if (this.viewedSession === sessionID) this.viewedSession = undefined
+      if (this.currentSession === sessionID) this.currentSession = undefined
+    }
+  }
+
+  async consumeEvents(info, signal) {
+    while (!signal.aborted) {
+      try {
+        const response = await fetch(new URL("/api/event", info.url), {
+          headers: {
+            accept: "text/event-stream",
+            authorization: authorization(info.password),
+          },
+          signal,
+        })
+        if (!response.ok) throw new Error(`HTTP ${response.status} en /api/event`)
+        if (!response.body) throw new Error("/api/event no devolvió un stream")
+        log(`[event] conectado a ${info.url}`)
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        const parser = new SseParser()
+        while (!signal.aborted) {
+          const { value, done } = await reader.read()
+          if (done) break
+          for (const event of parser.push(decoder.decode(value, { stream: true }))) this.handleEvent(event)
+        }
+        for (const event of parser.push(decoder.decode())) this.handleEvent(event)
+        reader.releaseLock()
+      } catch (error) {
+        if (signal.aborted) return
+        log(`[event] ${error.message}; reintentando`)
+      }
+      if (signal.aborted) return
+      await abortableSleep(2000, signal)
+    }
   }
 
   async resolveWebviewView(view) {
@@ -625,6 +878,52 @@ function activate(context) {
   status.show()
   context.subscriptions.push(status)
 
+  const sendSelection = async (ask) => {
+    const editor = vscode.window.activeTextEditor
+    if (!editor) {
+      vscode.window.showWarningMessage("OpenCode: no hay un archivo activo.")
+      return
+    }
+    if (editor.document.uri.scheme !== "file") {
+      vscode.window.showWarningMessage("OpenCode: el archivo activo no está en disco.")
+      return
+    }
+    const directory = workspaceDirectory(editor.document)
+    if (!directory) {
+      vscode.window.showWarningMessage("OpenCode: abre una carpeta en Kiro para usar el workspace.")
+      return
+    }
+    try {
+      const info = await ensureService()
+      panels.ensureEventStream(info)
+      const sessions = await listWorkspaceSessions(info, directory)
+      let target = chooseContextTarget(sessions, panels.viewedSession, panels.currentSession)
+      const roots = sessions.filter((session) => !session.parentID)
+      const askSetting = vscode.workspace.getConfiguration("opencode").get("contextTarget", "active") === "ask"
+      if ((ask || askSetting) && roots.length > 1) {
+        target = await pickContextSession(info, sessions, target?.id)
+        if (!target) return
+      }
+
+      let sessionID = target?.id
+      if (!sessionID) {
+        sessionID = await ensureWorkspaceSession(info, directory, { sessions })
+        target = { id: sessionID, title: "nueva conversación" }
+      }
+
+      await apiRequest(info, `/api/session/${encodeURIComponent(sessionID)}/prompt`, {
+        method: "POST",
+        body: selectionPrompt(editor),
+      })
+      log(`[context] ${fileReference(editor)} -> ${sessionID}${target?.title ? ` (${target.title})` : ""}`)
+      await panels.revealSession(sessionID)
+      const title = target?.title ? ` a «${target.title}»` : ""
+      vscode.window.setStatusBarMessage(`OpenCode: contexto enviado${title}.`, 4000)
+    } catch (error) {
+      vscode.window.showErrorMessage(`OpenCode: ${error.message}`)
+    }
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand("opencode.focus", () => vscode.commands.executeCommand(`${VIEW_ID}.focus`)),
     vscode.commands.registerCommand("opencode.toggle", async () => {
@@ -658,41 +957,21 @@ function activate(context) {
       vscode.window.showInformationMessage(`OpenCode: copiado ${reference}. Pégalo en el chat.`)
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`)
     }),
-    vscode.commands.registerCommand("opencode.sendSelection", async () => {
-      const editor = vscode.window.activeTextEditor
-      if (!editor) {
-        vscode.window.showWarningMessage("OpenCode: no hay un archivo activo.")
-        return
-      }
-      if (editor.document.uri.scheme !== "file") {
-        vscode.window.showWarningMessage("OpenCode: el archivo activo no está en disco.")
-        return
-      }
-      const directory = workspaceDirectory(editor.document)
-      if (!directory) {
-        vscode.window.showWarningMessage("OpenCode: abre una carpeta en Kiro para usar el workspace.")
-        return
-      }
-      try {
-        const info = await ensureService()
-        const sessionID = await ensureWorkspaceSession(info, directory)
-        await apiRequest(info, `/api/session/${encodeURIComponent(sessionID)}/prompt`, {
-          method: "POST",
-          body: selectionPrompt(editor),
-        })
-        await panels.showSession(sessionID)
-        vscode.window.setStatusBarMessage("OpenCode: contexto enviado.", 3000)
-      } catch (error) {
-        vscode.window.showErrorMessage(`OpenCode: ${error.message}`)
-      }
-    }),
+    vscode.commands.registerCommand("opencode.sendSelection", () => sendSelection(false)),
+    vscode.commands.registerCommand("opencode.sendSelectionAsk", () => sendSelection(true)),
   )
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       panels.pendingSession = undefined
+      panels.currentSession = undefined
+      panels.viewedSession = undefined
     }),
   )
+
+  context.subscriptions.push({
+    dispose: () => panels.dispose(),
+  })
 }
 
 function deactivate() {}
@@ -700,5 +979,16 @@ function deactivate() {}
 module.exports = {
   activate,
   deactivate,
-  __test: { commandFor, executableCandidates, quoteCmd, resolveExecutable, run },
+  __test: {
+    SseParser,
+    chooseContextTarget,
+    chooseWorkspaceSession,
+    commandFor,
+    executableCandidates,
+    formatRelativeTime,
+    quoteCmd,
+    resolveExecutable,
+    run,
+    sortSessionsByActivity,
+  },
 }

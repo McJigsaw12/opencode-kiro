@@ -19,10 +19,73 @@ Module._load = function (request, parent, isMain) {
 }
 
 const extension = require("../extension.js")
-const { commandFor, quoteCmd, resolveExecutable, run } = extension.__test
+const {
+  SseParser,
+  chooseContextTarget,
+  chooseWorkspaceSession,
+  commandFor,
+  formatRelativeTime,
+  quoteCmd,
+  resolveExecutable,
+  run,
+  sortSessionsByActivity,
+} = extension.__test
 
 async function main() {
   assert.equal(quoteCmd("C:\\Program Files\\opencode\\opencode.cmd"), '"C:\\Program Files\\opencode\\opencode.cmd"')
+
+  const now = Date.now()
+  const sessions = [
+    {
+      id: "background",
+      title: "Background",
+      time: { viewed: now - 60_000, updated: now + 60_000 },
+    },
+    {
+      id: "active",
+      title: "Active",
+      time: { viewed: now, updated: now - 60_000 },
+    },
+    {
+      id: "child",
+      parentID: "background",
+      title: "Child",
+      time: { viewed: now + 120_000, updated: now + 120_000 },
+    },
+    {
+      id: "archived",
+      title: "Archived",
+      time: { viewed: now + 180_000, archived: now },
+    },
+  ]
+
+  assert.equal(chooseWorkspaceSession(sessions).id, "active")
+  assert.equal(chooseWorkspaceSession(sessions, "background").id, "background")
+  assert.equal(chooseWorkspaceSession([], "background"), undefined)
+  assert.equal(chooseContextTarget(sessions, undefined, undefined).id, "active")
+  assert.equal(chooseContextTarget(sessions, "background", "active").id, "background")
+  assert.equal(chooseContextTarget(sessions, "missing", "active").id, "active")
+  assert.equal(chooseContextTarget(sessions, "child", "active").id, "active")
+  assert.equal(chooseContextTarget(sessions, "archived", "active").id, "active")
+  assert.deepEqual(
+    sortSessionsByActivity(sessions.filter((session) => !session.parentID && !session.time.archived)).map(
+      (session) => session.id,
+    ),
+    ["active", "background"],
+  )
+
+  assert.equal(formatRelativeTime(now), "ahora")
+  assert.equal(formatRelativeTime(now - 5 * 60_000), "hace 5 min")
+  assert.equal(formatRelativeTime(undefined), "sin registro")
+
+  const parser = new SseParser()
+  assert.deepEqual(parser.push('data: {"type":"a"}\n\n'), [{ type: "a" }])
+  assert.deepEqual(parser.push('data: {"type":"b"}\n'), [])
+  assert.deepEqual(parser.push("\n"), [{ type: "b" }])
+  assert.deepEqual(parser.push(": heartbeat\n\n"), [])
+  assert.deepEqual(parser.push('data: {"type":"c"}\r\n\r\n'), [{ type: "c" }])
+  assert.deepEqual(parser.push('data: {"type":"multi",\ndata: "value":1}\n\n'), [{ type: "multi", value: 1 }])
+  assert.deepEqual(parser.push("data: not-json\n\n"), [])
 
   const unix = commandFor("/bin/sh", ["-c", "exit 0"])
   assert.equal(unix.file, "/bin/sh")
