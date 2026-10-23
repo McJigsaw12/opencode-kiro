@@ -1,6 +1,7 @@
 # OpenCode for Kiro
 
 [![Release](https://img.shields.io/github/v/release/McJigsaw12/opencode-kiro?display_name=tag&sort=semver)](https://github.com/McJigsaw12/opencode-kiro/releases/latest)
+[![Open VSX](https://img.shields.io/open-vsx/v/fghernandez/opencode-kiro?label=Open%20VSX)](https://open-vsx.org/extension/fghernandez/opencode-kiro)
 [![CI](https://github.com/McJigsaw12/opencode-kiro/actions/workflows/ci.yml/badge.svg)](https://github.com/McJigsaw12/opencode-kiro/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -84,7 +85,30 @@ cuenta de GitHub para descargar la release.
 - Python 3.8 o superior (solo para empaquetar el VSIX).
 - `git` y `bash`.
 
-## Instalación rápida desde GitHub
+## Instalación desde Open VSX
+
+Kiro usa **Open VSX** como registro de extensiones, así que puedes instalarla sin
+descargar archivos:
+
+1. Abre la vista **Extensiones** en Kiro.
+2. Busca **OpenCode for Kiro** o el ID `fghernandez.opencode-kiro`.
+3. Pulsa **Install** y recarga Kiro.
+
+También puedes instalarla por CLI:
+
+```sh
+kiro --install-extension fghernandez.opencode-kiro
+```
+
+Página de la extensión:
+**https://open-vsx.org/extension/fghernandez/opencode-kiro**
+
+> Si la búsqueda aún no la muestra, el índice de Open VSX puede tardar unos
+> minutos. La instalación por ID y el VSIX de GitHub funcionan igualmente.
+
+## Instalación manual desde GitHub Releases
+
+Si prefieres un VSIX o Kiro no puede acceder a Open VSX:
 
 ### Antes de empezar
 
@@ -241,6 +265,9 @@ Kiro (webview) ──iframe──▶ http://127.0.0.1:<puerto>/server/<clave>/se
   comprueba `opencode service status`. En Linux/macOS el archivo de estado debe
   estar en `~/.local/state/opencode/service.json`.
 - **No aparece el botón OpenCode**: recarga Kiro después de instalar el VSIX.
+- **No aparece en Open VSX o la búsqueda no la encuentra**: el índice puede tardar
+  unos minutos. Instala por ID con
+  `kiro --install-extension fghernandez.opencode-kiro` o usa el VSIX de GitHub.
 - **No sabes qué falta**: ejecuta **OpenCode: Comprobar requisitos** y revisa
   **Ver → Resultados → OpenCode**.
 - **La UI queda en “Conectando…”**: ejecuta `./scripts/verify.sh` para probar el
@@ -299,7 +326,12 @@ de Extensiones de Kiro (y se pueda instalar por nombre):
 
 El workflow construye el VSIX y lo publica con `ovsx`. Comprueba que el tag
 coincida con la versión de `package.json` y puede crear el namespace si no
-existe.
+existe. La página pública es
+https://open-vsx.org/extension/fghernandez/opencode-kiro.
+
+No compartas el token de Open VSX. Si se filtra, revócalo en
+https://open-vsx.org/user-settings/tokens y actualiza el secret
+`OPEN_VSX_TOKEN`.
 
 ## Estructura
 
