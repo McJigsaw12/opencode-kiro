@@ -111,7 +111,7 @@ Página de la extensión:
 **https://open-vsx.org/extension/fghernandez/opencode-kiro**
 
 > Si la búsqueda aún no la muestra, el índice de Open VSX puede tardar unos
-> minutos. La instalación por ID y el VSIX de GitHub funcionan igualmente. Open
+> minutos u horas. La instalación por ID y el VSIX de GitHub funcionan igualmente. Open
 > VSX también puede tardar en indexar una versión nueva; si necesitas la última,
 > usa el VSIX de GitHub Releases.
 
@@ -291,7 +291,7 @@ Kiro (webview) ──iframe──▶ http://127.0.0.1:<puerto>/server/<clave>/se
   estado debe estar en `~/.local/state/opencode/service.json`.
 - **No aparece el botón OpenCode**: recarga Kiro después de instalar el VSIX.
 - **No aparece en Open VSX o la búsqueda no la encuentra**: el índice puede tardar
-  unos minutos. Instala por ID con
+  minutos u horas. Instala por ID con
   `kiro --install-extension fghernandez.opencode-kiro` o usa el VSIX de GitHub.
 - **No sabes qué falta**: ejecuta **OpenCode: Comprobar requisitos** y revisa
   **Ver → Resultados → OpenCode**.
